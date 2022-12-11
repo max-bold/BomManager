@@ -25,7 +25,7 @@ if __name__ == '__main__':
     params = {
         'response_type': 'code',
         'client_id': json.load(creds)['clientid'],
-        'redirect_uri': f'http://{address}:{port}/oauth/callback?foo=bar',
+        'redirect_uri': f'http://{address}:{port}/oauth/callback',
         'scope': 'data:read'
     }
     rurl = url+urlencode(params)

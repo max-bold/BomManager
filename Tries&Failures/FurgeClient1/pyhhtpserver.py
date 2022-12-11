@@ -4,12 +4,17 @@ from urllib.parse import urlparse, parse_qs
 from threading import Thread
 
 class rhandler(BaseHTTPRequestHandler):
+    def __init__(self, request, client_address, server) -> None:
+        self.req = request
+        super().__init__(request, client_address, server)
+        
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-type','text/html')
         self.end_headers()
         self.wfile.write(b'DONE')
         print(parse_qs(self.requestline))
+        print(self.req)
 
 
 # server  = HTTPServer(('',8000), rhandler)
