@@ -14,7 +14,7 @@ class rhandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'DONE')
         print(parse_qs(self.requestline))
-        print(self.req)
+        # print(self.req)
 
 
 # server  = HTTPServer(('',8000), rhandler)
