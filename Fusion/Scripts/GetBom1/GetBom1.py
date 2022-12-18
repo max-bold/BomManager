@@ -4,11 +4,12 @@
 # AirTable API docs: https://airtable.com/developers/web/api/introduction
 
 from __future__ import annotations
+import requests
 from urllib.parse import unquote
 import logging
 from time import sleep
 from .creds import token, baseId
-import requests
+
 from typing import Tuple
 import traceback
 
@@ -26,7 +27,7 @@ comptableId = 'tblM2xme4TrV4xkAN'
 occtableId = 'tbl4JFd3AdUPZtW9Z'
 
 log = logging.Logger('GetBom1', level=logging.DEBUG)
-fh = logging.FileHandler(f'{scriptdir}\\getbom.log', 'w',encoding='UTF-16')
+fh = logging.FileHandler(f'{scriptdir}\\getbom2.log', 'w', encoding='UTF-16')
 hf = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
 fh.setFormatter(hf)
 log.addHandler(fh)
@@ -121,8 +122,11 @@ def atrequest(method: str,
               url: str,
               headers: dict = None,
               params: dict = None,
-              data: dict = None) -> requests.Response:
-    r: requests.Response = requests.request(
+              data: dict = None,
+              session: requests.Session = None) -> requests.Response:
+    if not session:
+        session = requests.Session()
+    r: requests.Response = session.request(
         method=method,
         url=url,
         params=params,
@@ -155,7 +159,9 @@ def atpatchcomps(comps: list[adsk.fusion.Component]) -> dict:
             )
             ids.append(comp.id)
         else:
-            log.warning(f'Seems that diffirent components have same IDs: {comp.id}')
+            log.warning(
+                f'Seems that diffirent components have same IDs: {comp.id}')
+    session = requests.Session()
     for i in range(0, len(records), 10):
         ii = min(i+10, len(records))
         r = atrequest(
@@ -172,7 +178,8 @@ def atpatchcomps(comps: list[adsk.fusion.Component]) -> dict:
                     ]
                 },
                 "records": records[i:ii]
-            }
+            },
+            session=session
         )
         if r.status_code == 200:
             for rec in r.json()["records"]:
@@ -252,7 +259,7 @@ def atfindcomporadd(comp: adsk.fusion.Component) -> str:
     return comprecid
 
 
-def atgetoccsincomp(compid: str) -> list[dict]:
+def atgetoccsincomp(compid: str, session: requests.Session = None) -> list[dict]:
     r = atrequest(
         'GET',
         url=f'https://api.airtable.com/v0/{baseId}/{occtableId}',
@@ -264,7 +271,9 @@ def atgetoccsincomp(compid: str) -> list[dict]:
             "cellFormat": "string",
             "userLocale": "ru",
             "timeZone": "Asia/Tbilisi"
-        }
+            # "fields": ["fldCbJRbZR9vLumPR"]
+        },
+        session=session
     )
     if r.status_code == 200:
         return r.json()['records']
@@ -325,9 +334,10 @@ def atpatchoccs(root: adsk.fusion.Component, ui: adsk.core.UserInterface) -> req
     records = []
     pd = ui.createProgressDialog()
     pd.show('GetBom', 'Updating Airtable', 0, len(comps))
+    session = requests.Session()
     for comp in comps:
         incomprec = compdict[comp.id]
-        atoccs = atgetoccsincomp(comp.id)
+        atoccs = atgetoccsincomp(comp.id, session)
         occs = getoccs(comp)
         ofcids = []
         for occ in occs:
