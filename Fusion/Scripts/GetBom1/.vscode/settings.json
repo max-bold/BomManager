@@ -1,5 +1,12 @@
 {
-	"python.autoComplete.extraPaths":	["C:/Users/maxim/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"],
-	"python.analysis.extraPaths":	["C:/Users/maxim/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"],
-	"python.pythonPath":	"C:/Users/maxim/AppData/Local/Autodesk/webdeploy/production/414da7cdec4faa7986fe0d205fb521fc68f5d46c/Python/python.exe"
+	"python.autoComplete.extraPaths":	[
+		"C:\\Users\\boldm\\AppData\\Roaming\\Autodesk\\Autodesk Fusion 360\\API\\Python\\defs"
+	],
+	"python.analysis.extraPaths":	["C:/Users/maxim/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs", "C:/Users/boldm/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"],
+	"python.pythonPath": "C:/Users/boldm/AppData/Local/Autodesk/webdeploy/production/b788673c90d05b91de61a3242d6fc03e30a0895b/Python/python.exe",
+	"fusion-360-helper.enabled": true,
+	"fusion-360-helper.python.pythonPath": "C:\\Users\\boldm\\AppData\\Local\\Autodesk\\webdeploy\\production\\b788673c90d05b91de61a3242d6fc03e30a0895b\\Python\\python.exe",
+	"fusion-360-helper.python.extraLibs": [
+		"C:\\Users\\boldm\\AppData\\Roaming\\Autodesk\\Autodesk Fusion 360\\API\\Python\\defs"
+	]
 }
