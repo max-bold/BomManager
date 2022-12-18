@@ -4,6 +4,11 @@
 # AirTable API docs: https://airtable.com/developers/web/api/introduction
 
 from __future__ import annotations
+from urllib.parse import unquote
+import logging
+from time import sleep
+from .creds import token, baseId
+import requests
 from typing import Tuple
 import traceback
 
@@ -13,22 +18,15 @@ import adsk.core
 import sys
 import os
 import json
-# libpath = os.path.dirname(os.path.realpath(__file__))+'\\lib'
-# sys.path.append(libpath)
-# import requests
-from .creds import token, baseId
-from .lib import requests
-from time import sleep
-import logging
-from urllib.parse import unquote
-from .lib.progress.bar import ChargingBar
+libpath = os.path.dirname(os.path.realpath(__file__))+'\\lib'
+sys.path.append(libpath)
 
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 comptableId = 'tblM2xme4TrV4xkAN'
 occtableId = 'tbl4JFd3AdUPZtW9Z'
 
 log = logging.Logger('GetBom1', level=logging.DEBUG)
-fh = logging.FileHandler(f'{scriptdir}\\getbom.log', 'w')
+fh = logging.FileHandler(f'{scriptdir}\\getbom.log', 'w',encoding='UTF-16')
 hf = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
 fh.setFormatter(hf)
 log.addHandler(fh)
@@ -130,6 +128,7 @@ def atrequest(method: str,
         params=params,
         headers=headers,
         json=data)
+    log.debug(f'{unquote(r.url)} | {r.status_code} | {r.json()}')
     if r.status_code == 439:
         log.info('To much requests, waiting 30s')
         sleep(30)
@@ -138,33 +137,49 @@ def atrequest(method: str,
         return r
 
 
-def atpatchcomps(baseId: str, tableIdOrName: str, comps: list[adsk.fusion.Component], token: str) -> requests.Response:
-    url = f"https://api.airtable.com/v0/{baseId}/{tableIdOrName}"
-    headers = {"Authorization": f"Bearer {token}",
-               "Content-Type": "application/json"}
-    data = {
-        "performUpsert": {
-            "fieldsToMergeOn": [
-                "ID"
-            ]
-        },
-        "records": []
-    }
+def atpatchcomps(comps: list[adsk.fusion.Component]) -> dict:
+    results = {}
+    records = []
+    ids = []
     for comp in comps:
-        rec = {
-            "fields": {
-                "ID": comp.id,
-                "fldyDundYFql6ReRf": comp.partNumber,
-                "fldri55UTvgd3t39n": comp.name,
-                "fldTLteA9WZESMxuU": comp.description
+        if comp.id not in ids:
+            records.append(
+                {
+                    "fields": {
+                        "fldQNW2q1PsQp5SSq": comp.id,
+                        "fldyDundYFql6ReRf": comp.partNumber,
+                        "fldri55UTvgd3t39n": comp.name,
+                        "fldTLteA9WZESMxuU": comp.description
+                    }
+                }
+            )
+            ids.append(comp.id)
+        else:
+            log.warning(f'Seems that diffirent components have same IDs: {comp.id}')
+    for i in range(0, len(records), 10):
+        ii = min(i+10, len(records))
+        r = atrequest(
+            method='PATCH',
+            url=f"https://api.airtable.com/v0/{baseId}/{comptableId}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            },
+            data={
+                "performUpsert": {
+                    "fieldsToMergeOn": [
+                        "ID"
+                    ]
+                },
+                "records": records[i:ii]
             }
-        }
-        data["records"].append(rec)
-    data = json.dumps(data)
-    r = requests.patch(url, headers=headers, data=data)
-    return r
-
-# https://airtable.com/appWxxU0dgHGJgHGZ/tblM2xme4TrV4xkAN/viwxkQ9BfX8nKHA9Z/fldQNW2q1PsQp5SSq
+        )
+        if r.status_code == 200:
+            for rec in r.json()["records"]:
+                results[rec['fields']['ID']] = rec['id']
+        else:
+            log.warning(f'Server returned: {r.json()}')
+    return results
 
 
 def atfindcompbyid(compid: str) -> list[str]:
@@ -173,7 +188,7 @@ def atfindcompbyid(compid: str) -> list[str]:
     params = {
         'filterByFormula': f'{{ID}}="{compid}"'
     }
-    r = requests.get(url, params, headers=headers)
+    r = atrequest('GET', url, params=params, headers=headers)
     if r.status_code == 200:
         data = r.json()
         if len(data['records']) == 1:
@@ -185,14 +200,6 @@ def atfindcompbyid(compid: str) -> list[str]:
     else:
         log.warning(f'Server returned: {r.json()}')
         return None
-
-
-# def atgetoccsincomp(compid: str):
-#     comprecids = atfindcompbyid(compid)
-#     if len(comprecids) == 1:
-#         comprecid = comprecids[0]
-#     else:
-#         logging.warning(f'Found {len(comprecids)} records for {compid}')
 
 
 def atfindcomp(comp: adsk.fusion.Component) -> str:
@@ -259,7 +266,6 @@ def atgetoccsincomp(compid: str) -> list[dict]:
             "timeZone": "Asia/Tbilisi"
         }
     )
-    # print(unquote(r.url))
     if r.status_code == 200:
         return r.json()['records']
     else:
@@ -312,31 +318,22 @@ def atdeloccs(recidlist: list[str]) -> None:
         log.warning(f'Server returned {r.json()}')
 
 
-def atpatchoccs(root: adsk.fusion.Component) -> requests.Response:
-    
-    data = {
-        "performUpsert": {
-            "fieldsToMergeOn": [
-                "ID-ID"
-            ]
-        },
-        "records": []
-    }
+def atpatchoccs(root: adsk.fusion.Component, ui: adsk.core.UserInterface) -> requests.Response:
+    comps = getallcomponents(root)
+    compdict = atpatchcomps(comps)
     dellist = []
-    ocscount = len(getalloccs(root))
-    i=0
-    for comp in getallcomponents(root):
-        incomprec = atfindcomporadd(comp)
+    records = []
+    pd = ui.createProgressDialog()
+    pd.show('GetBom', 'Updating Airtable', 0, len(comps))
+    for comp in comps:
+        incomprec = compdict[comp.id]
         atoccs = atgetoccsincomp(comp.id)
         occs = getoccs(comp)
-        if not occs:
-            print(f'Done: {i}/{ocscount}')
-            i+=1
         ofcids = []
         for occ in occs:
             ofcids.append(occ.ofc.id)
-            ofcomprec = atfindcomporadd(occ.ofc)
-            data['records'].append({
+            ofcomprec = compdict[occ.ofc.id]
+            records.append({
                 "fields": {
                     "ID-ID": f'{occ.ofc.id}-{occ.inc.id}',
                     "of_component": [ofcomprec],
@@ -345,15 +342,24 @@ def atpatchoccs(root: adsk.fusion.Component) -> requests.Response:
                 }
             }
             )
-            print(f'Done: {i}/{ocscount}')
-            i+=1
-        
         for atocc in atoccs:
             if atocc['fields']['of_component'] not in ofcids:
                 dellist.append(atocc['id'])
+        pd.progressValue += 1
+        if pd.wasCancelled:
+            break
     if dellist:
         atdeloccs(dellist)
-    if data['records']:
+    for i in range(0, len(records), 10):
+        ii = min(i+10, len(records))
+        data = {
+            "performUpsert": {
+                "fieldsToMergeOn": [
+                    "ID-ID"
+                ]
+            },
+            "records": records[i:ii]
+        }
         r = atrequest(
             'PATCH',
             url=f'https://api.airtable.com/v0/{baseId}/{occtableId}',
@@ -363,21 +369,8 @@ def atpatchoccs(root: adsk.fusion.Component) -> requests.Response:
             },
             data=data
         )
-        # print(r.json())
-
-            # if occ.ofc.id
-            # pass
-            # def atgetallocs() -> list[Occurrence]:
-            #     url = f'https://api.airtable.com/v0/{baseId}/{occtableId}'
-            #     headers = {
-            #         "Authorization": f"Bearer {token}"
-            #     }
-            #     r = atrequest('GET', url)
-            #     print(r.json())
-            # occs:list[Occurrence] = []
-            # if r.status_code == 200:
-            #     for record in r.json()['records']:
-            #         pass
+        if not r.status_code == 200:
+            log.warning(f'Server returned {r.json()}')
 
 
 def run(context):
@@ -387,66 +380,7 @@ def run(context):
     product = app.activeProduct
     design = adsk.fusion.Design.cast(product)
     root = design.rootComponent
-    # print('Components:')
-    # # for comp in getallcomponents(root):
-    # #     print(f'{comp.name} ({comp.id})')
-    # comps = getallcomponents(root)
-    # print(atpush('appWxxU0dgHGJgHGZ',
-    #              'tblCyjuFbzWfv87hE',
-    #              'S37lqFJ2',
-    #              comptocsv(comps)))
 
-    # print(comptocsv(comps))
-    # print('Occurrences:')
-    # # for occ in getalloccs(root):
-    # #     print(f'of {occ.ofc.name} in {occ.inc.name} count: {occ.count}')
-    # occs = getalloccs(root)
-    # print(atpush('appWxxU0dgHGJgHGZ',
-    #              'tblsxOLCYtnpeEbqs',
-    #              'khX2A1ds',
-    #              occstocsv(occs)))
-    # print(occstocsv(occs))
-    # comps = getallcomponents(root)
-    # print('Patch components:', atpatchcomps(
-    #     baseId=baseId,
-    #     tableIdOrName='tblM2xme4TrV4xkAN',
-    #     comps=comps,
-    #     token=token
-    # ).status_code)
-# https://airtable.com/appWxxU0dgHGJgHGZ/tblM2xme4TrV4xkAN/viwxkQ9BfX8nKHA9Z/rec2eBRrZFx6x7Ldk/fldQNW2q1PsQp5SSq?copyLinkToCellOrRecordOrigin=gridView
-    # occs = getalloccs(root)
-    # print('Patch occs:', atpatchoccs(
-    #     baseId=baseId,
-    #     tableIdOrName='tbl4JFd3AdUPZtW9Z',
-    #     comptable='tblM2xme4TrV4xkAN',
-    #     occs=occs,
-    #     token=token
-    # ).json())
+    atpatchoccs(root, ui)
 
-    # print(atfindcompbyid(baseId,
-    #                      tableIdOrName='tblM2xme4TrV4xkAN',
-    #                      compid='7610b7b7-0afc-4565-b4fb-a298b413071f',
-    #                      token=token).json())
-    # for i in range(100):
-    # atgetallocs()
-    # print(atfindcomp2('7610b7b7-0afc-4565-b4fb-a297b413071f'))
-    # # log.debug('Finished')
-    # for comp in getallcomponents(root):
-    #     print(atcreatecomp(comp))
-    # rec = atfindcompbyid('dd1ab7d6-c85c-4ae2-b9a8-6a9a675a9e55')
-    # print(rec)
-    # occs = atgetoccsincomp('dd1ab7d6-c85c-4ae2-b9a8-6a9a675a9e55')
-    # dellist = []
-    # for occ in occs:
-    #     dellist.append(occ['id'])
-    # print(atdeloccs(dellist).json())
-    # r=  atcreateocc(
-    #     ofcompid=atfindcompbyid('dd1ab7d6-c85c-4ae2-b9a8-6a9a675a9e55'),
-    #     incompid=atfindcompbyid('fe4556af-d61c-4173-b9ac-c247e641194b'),
-    #     count=10
-    # )
-    # print(r.request.body)
-    # print(r.status_code)
-    # print(r.json())
-    atpatchoccs(root)
     log.debug('Finished')
