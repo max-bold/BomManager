@@ -46,9 +46,11 @@ class Occurrence(object):
 
 def getallcomponents(root: adsk.fusion.Component) -> list[adsk.fusion.Component]:
     components = [root]
+    ids=[root.id]
     for occ in root.allOccurrences:
-        if occ.component not in components:
+        if occ.component.id not in ids:
             components.append(occ.component)
+            ids.append(occ.component.id)
     return components
 
 
