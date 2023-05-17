@@ -5,9 +5,10 @@ import adsk.core, adsk.fusion, adsk.cam, traceback
 import json
 import os
 
+
 def getallcomponents(root: adsk.fusion.Component) -> list[adsk.fusion.Component]:
     components = [root]
-    ids=[root.id]
+    ids = [root.id]
     for occ in root.allOccurrences:
         if occ.component.id not in ids:
             components.append(occ.component)
@@ -26,20 +27,24 @@ def getcomponents(root: adsk.fusion.Component) -> list[adsk.fusion.Component]:
 def getbom(root: adsk.fusion.Component):
     components = getallcomponents(root)
     occurences = []
-    compstrs = []
+    compdicts = []
     for component in components:
-        compstrs.append({
-            'id':component.id,
-            'PartNumber':component.partNumber,
-            'Description':component.description
-            })
+        compdicts.append(
+            {
+                "id": component.id,
+                "PartNumber": component.partNumber,
+                "Description": component.description,
+            }
+        )
         for child in getcomponents(component):
-            occurences.append({
-                'InComp':component.id, 
-                 'OfComp':child.id, 
-                 'Count':component.allOccurrencesByComponent(child).count
-                 })
-    return {'Components':compstrs, 'Occurences':occurences}
+            occurences.append(
+                {
+                    "InComp": component.id,
+                    "OfComp": child.id,
+                    "Count": component.allOccurrencesByComponent(child).count,
+                }
+            )
+    return {"Components": compstrs, "Occurences": occurences}
 
 
 def run(context):
@@ -51,10 +56,14 @@ def run(context):
         design = adsk.fusion.Design.cast(product)
         root = design.rootComponent
         bom = getbom(root)
-        with open('E:/CODE/BomManager/Fusion/Scripts/BomToJASON/bom.json','w', encoding='utf16') as out:
+        with open(
+            "E:/CODE/BomManager/Fusion/Scripts/BomToJASON/bom.json",
+            "w",
+            encoding="utf16",
+        ) as out:
             _as_json = json.dumps(bom, indent=4, ensure_ascii=False)
             out.write(_as_json)
-        print('Done')
+        print("Done")
     except:
         if ui:
             ui.messageBox("Failed:\n{}".format(traceback.format_exc()))
