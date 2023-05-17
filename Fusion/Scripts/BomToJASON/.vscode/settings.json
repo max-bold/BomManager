@@ -1,0 +1,14 @@
+{
+	"python.analysis.extraPaths": [
+		"C:/Users/maxim/AppData/Local/Autodesk/webdeploy/production/b4885f4229f39fee5ad2bce82f309e671e5c9ccd/Api/Python/packages",
+		"C:/Users/maxim/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
+	],
+	"python.autoComplete.extraPaths": [
+		"C:/Users/maxim/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
+	],
+	"python.pythonPath": "C:/Users/maxim/AppData/Local/Autodesk/webdeploy/production/b4885f4229f39fee5ad2bce82f309e671e5c9ccd/Python/python.exe",
+	"[python]": {
+		"editor.defaultFormatter": "ms-python.black-formatter"
+	},
+	"python.formatting.provider": "black"
+}
