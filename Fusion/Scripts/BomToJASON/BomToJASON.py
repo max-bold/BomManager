@@ -44,7 +44,7 @@ def getbom(root: adsk.fusion.Component):
                     "Count": component.allOccurrencesByComponent(child).count,
                 }
             )
-    return {"Components": compstrs, "Occurences": occurences}
+    return {"Components": compdicts, "Occurences": occurences}
 
 
 def run(context):
