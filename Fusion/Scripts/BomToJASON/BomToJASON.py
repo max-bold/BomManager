@@ -7,8 +7,11 @@ import os
 
 def getallcomponents(root: adsk.fusion.Component) -> list[adsk.fusion.Component]:
     components = [root]
+    ids=[root.id]
     for occ in root.allOccurrences:
-        components.append(occ.component)
+        if occ.component.id not in ids:
+            components.append(occ.component)
+            ids.append(occ.component.id)
     return components
 
 
