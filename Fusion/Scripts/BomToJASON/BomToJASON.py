@@ -3,7 +3,6 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import json
-import os
 
 
 def getallcomponents(root: adsk.fusion.Component) -> list[adsk.fusion.Component]:
