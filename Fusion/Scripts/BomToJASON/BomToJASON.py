@@ -56,7 +56,7 @@ def run(context):
         root = design.rootComponent
         bom = getbom(root)
         with open(
-            "E:/CODE/BomManager/Fusion/Scripts/BomToJASON/bom.json",
+            "F:/CODE/BomManager/Fusion/Scripts/BomToJASON/bom.json",
             "w",
             encoding="utf16",
         ) as out:
